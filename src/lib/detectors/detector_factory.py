@@ -6,10 +6,12 @@ from .exdet import ExdetDetector
 from .ddd import DddDetector
 from .ctdet import CtdetDetector
 from .multi_pose import MultiPoseDetector
+from .det3d import Detector3D
 
 detector_factory = {
   'exdet': ExdetDetector, 
   'ddd': DddDetector,
   'ctdet': CtdetDetector,
-  'multi_pose': MultiPoseDetector, 
+  'multi_pose': MultiPoseDetector,
+  'det3d': Detector3D,
 }

@@ -6,6 +6,7 @@ import _init_paths
 
 import os
 import cv2
+import torch
 
 from opts import opts
 from detectors.detector_factory import detector_factory
@@ -16,6 +17,7 @@ time_stats = ['tot', 'load', 'pre', 'net', 'dec', 'post', 'merge']
 
 def demo(opt):
   os.environ['CUDA_VISIBLE_DEVICES'] = opt.gpus_str
+  torch.cuda.set_device(int(opt.gpus_str))
   opt.debug = max(opt.debug, 1)
   Detector = detector_factory[opt.task]
   detector = Detector(opt)

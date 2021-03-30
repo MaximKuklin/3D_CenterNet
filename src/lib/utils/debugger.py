@@ -62,6 +62,9 @@ class Debugger(object):
       self.focal_length = 721.5377
       self.W = 1242
       self.H = 375
+    elif dataset == 'objectron':
+      self.names = ['shoe']
+
     num_classes = len(self.names)
     self.down_ratio=down_ratio
     # for bird view
@@ -187,6 +190,42 @@ class Debugger(object):
                     (bbox[0] + cat_size[0], bbox[1] - 2), c, -1)
       cv2.putText(self.imgs[img_id], txt, (bbox[0], bbox[1] - 2), 
                   font, 0.5, (0, 0, 0), thickness=1, lineType=cv2.LINE_AA)
+
+  def add_coco_3d_box(self, bbox, cat, conf=1, show_txt=True, img_id='default'):
+    bbox = np.array(bbox, dtype=np.int32)
+    bbox = bbox.reshape(9,3)[:, :2]
+    # cat = (int(cat) + 1) % 80
+    cat = int(cat)
+    # print('cat', cat, self.names[cat])
+    c = self.colors[cat][0][0].tolist()
+    if self.theme == 'white':
+        c = (255 - np.array(c)).tolist()
+    txt = '{}{:.1f}'.format(self.names[cat], conf)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    cat_size = cv2.getTextSize(txt, font, 0.5, 2)[0]
+
+    lines = (
+        [1, 5], [2, 6], [3, 7], [4, 8],  # lines along x-axis
+        [1, 3], [5, 7], [2, 4], [6, 8],  # lines along y-axis
+        [1, 2], [3, 4], [5, 6], [7, 8]   # lines along z-axis
+    )
+
+    for dot in bbox:
+        cv2.circle(self.imgs[img_id], (dot[0], dot[1]), 10, c, -1)
+    for ids in lines:
+        cv2.line(
+            self.imgs[img_id],
+            (bbox[ids[0]][0], bbox[ids[0]][1]),
+            (bbox[ids[1]][0], bbox[ids[1]][1]),
+            c,
+            thickness=3
+        )
+    if show_txt:
+        cv2.rectangle(self.imgs[img_id],
+                      (bbox[0][0], bbox[0][1] - cat_size[1] - 2),
+                      (bbox[0][0] + cat_size[0], bbox[0][1] - 2), c, -1)
+        cv2.putText(self.imgs[img_id], txt, (bbox[0][0], bbox[0][1] - 2),
+                    font, 0.5, (0, 0, 0), thickness=1, lineType=cv2.LINE_AA)
 
   def add_coco_hp(self, points, img_id='default'): 
     points = np.array(points, dtype=np.int32).reshape(self.num_joints, 2)

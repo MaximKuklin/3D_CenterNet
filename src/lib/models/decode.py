@@ -4,7 +4,10 @@ from __future__ import print_function
 
 import torch
 import torch.nn as nn
+import numpy as np
 from .utils import _gather_feat, _transpose_and_gather_feat
+from Objectron.objectron.dataset.box import Box
+from pytorch3d.transforms import quaternion_to_matrix
 
 def _nms(heat, kernel=3):
     pad = (kernel - 1) // 2
@@ -569,3 +572,58 @@ def multi_pose_decode(
   detections = torch.cat([bboxes, scores, kps, clses], dim=2)
     
   return detections
+
+
+def det3d_decode(heat, dim, loc, rot, projection_matrix, reg=None, K=100):
+    batch, cat, height, width = heat.size()
+
+    # heat = torch.sigmoid(heat)
+    # perform nms on heatmaps
+    heat = _nms(heat)
+
+    scores, inds, clses, ys, xs = _topk(heat, K=K)
+    if reg is not None:
+        reg = _transpose_and_gather_feat(reg, inds)
+        reg = reg.view(batch, K, 2)
+        xs = xs.view(batch, K, 1) + reg[:, :, 0:1]
+        ys = ys.view(batch, K, 1) + reg[:, :, 1:2]
+    else:
+        xs = xs.view(batch, K, 1) + 0.5
+        ys = ys.view(batch, K, 1) + 0.5
+    dim = _transpose_and_gather_feat(dim, inds)
+    loc = _transpose_and_gather_feat(loc, inds)
+    rot = _transpose_and_gather_feat(rot, inds)
+
+    dim = dim.view(batch, K, 3).squeeze(0).cpu().numpy()
+    loc = loc.view(batch, K, 3).squeeze(0).cpu().numpy()
+    rot = rot.view(batch, K, 4).squeeze(0)
+
+    rot_mat = quaternion_to_matrix(rot).cpu().numpy()
+
+    clses = clses.view(batch, K, 1).float()
+    scores = scores.view(batch, K, 1)
+
+    boxes_3d = [Box.from_transformation(rot_mat[i], loc[i], dim[i]) for i in range(K)]
+
+    boxes_2d = [project_points(boxes_3d[i].vertices, projection_matrix) for i in range(K)]
+    boxes_2d = torch.tensor(boxes_2d).view(batch, K, -1).cuda()
+
+    dets = torch.cat([boxes_2d, scores, clses], dim=2)
+
+    return dets
+
+def project_points(p_3d_cam, projection_matrix):
+    p_3d_cam = np.concatenate((p_3d_cam, np.ones_like(p_3d_cam[:, :1])), axis=-1).T
+    p_2d_proj = np.matmul(projection_matrix, p_3d_cam)
+    # Project the points
+    p_2d_ndc = p_2d_proj[:-1, :] / p_2d_proj[-1, :]
+    p_2d_ndc = p_2d_ndc.T
+
+    # Convert the 2D Projected points from the normalized device coordinates to pixel values
+    x = p_2d_ndc[:, 1]
+    y = p_2d_ndc[:, 0]
+    pixels = p_2d_ndc.copy()
+    pixels[:, 0] = ((1 + x) * 0.5)
+    pixels[:, 1] = ((1 + y) * 0.5)
+    # pixels = pixels.astype(int)
+    return pixels

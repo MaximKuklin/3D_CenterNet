@@ -112,3 +112,22 @@ def multi_pose_post_process(dets, c, s, h, w):
        pts.reshape(-1, 34)], axis=1).astype(np.float32).tolist()
     ret.append({np.ones(1, dtype=np.int32)[0]: top_preds})
   return ret
+
+def det3d_post_process(dets, c, s, h, w, num_classes):
+  # dets: batch x max_dets x dim
+  # return 1-based class det dict
+  ret = []
+  w = c[0][0]*2
+  h = c[0][1]*2
+  for i in range(dets.shape[0]):
+    top_preds = {}
+    dets[i, :, :-2][:, 0::3] *= w
+    dets[i, :, :-2][:, 1::3] *= h
+    classes = dets[i, :, -1]
+    for j in range(num_classes):
+      inds = (classes == j)
+      top_preds[j + 1] = np.concatenate([
+        dets[i, inds, :27].astype(np.float32),
+        dets[i, inds, 27:].astype(np.float32)], axis=1).tolist()
+    ret.append(top_preds)
+  return ret

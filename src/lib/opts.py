@@ -44,6 +44,9 @@ class opts(object):
                              help='random seed') # from CornerNet
 
     # log
+    self.parser.add_argument('--root_dir', type=str,
+                             help='path to save things (logs, weights, etc.)')
+
     self.parser.add_argument('--print_iter', type=int, default=0, 
                              help='disable progress bar and print to screen.')
     self.parser.add_argument('--hide_data_time', action='store_true',
@@ -174,7 +177,11 @@ class opts(object):
     self.parser.add_argument('--rot_weight', type=float, default=1,
                              help='loss weight for orientation.')
     self.parser.add_argument('--peak_thresh', type=float, default=0.2)
-    
+
+    # det3d
+    self.parser.add_argument('--loc_weight', type=float, default=1,
+                             help='loss weight for object location (translation).')
+
     # task
     # ctdet
     self.parser.add_argument('--norm_wh', action='store_true',
@@ -268,8 +275,10 @@ class opts(object):
       opt.chunk_sizes.append(slave_chunk_size)
     print('training chunk_sizes:', opt.chunk_sizes)
 
-    opt.root_dir = os.path.join(os.path.dirname(__file__), '..', '..')
-    opt.data_dir = os.path.join(opt.root_dir, 'data')
+    # if opt.root_dir is None:
+    root_dir = os.path.join(os.path.dirname(__file__), '..', '..')
+    opt.data_dir = os.path.join(root_dir, 'data')
+
     opt.exp_dir = os.path.join(opt.root_dir, 'exp', opt.task)
     opt.save_dir = os.path.join(opt.exp_dir, opt.exp_id)
     opt.debug_dir = os.path.join(opt.save_dir, 'debug')
@@ -328,6 +337,11 @@ class opts(object):
         opt.heads.update({'hm_hp': 17})
       if opt.reg_hp_offset:
         opt.heads.update({'hp_offset': 2})
+    elif opt.task == 'det3d':
+      assert opt.dataset in ['objectron']
+      opt.heads = {'hm': opt.num_classes, 'dim': 3, 'rot': 4, 'loc': 3}
+      if opt.reg_offset:
+        opt.heads.update({'reg': 2})
     else:
       assert 0, 'task not defined!'
     print('heads', opt.heads)
@@ -350,6 +364,9 @@ class opts(object):
       'ddd': {'default_resolution': [384, 1280], 'num_classes': 3, 
                 'mean': [0.485, 0.456, 0.406], 'std': [0.229, 0.224, 0.225],
                 'dataset': 'kitti'},
+      'det3d': {'default_resolution': [512, 512], 'num_classes': 1,
+                'mean': [0.408, 0.447, 0.470], 'std': [0.289, 0.274, 0.278],
+                'dataset': 'objectron'},
     }
     class Struct:
       def __init__(self, entries):
