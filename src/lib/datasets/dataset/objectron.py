@@ -35,7 +35,7 @@ class Objectron(data.Dataset):
             else:
                 self.annot_path = os.path.join(
                     self.data_dir, 'annotations',
-                    'coco_3d_annotations.json').format(split)
+                    'coco_3d_annotations_debug.json').format(split)
         self.max_objs = 20
         self.class_name = [
             '__background__', 'shoe'

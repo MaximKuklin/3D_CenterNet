@@ -28,6 +28,7 @@ def demo(opt):
     detector.pause = False
     while True:
         _, img = cam.read()
+        # img = cv2.resize(img, None, fx=0.5, fy=0.5)
         cv2.imshow('input', img)
         ret = detector.run(img)
         time_str = ''

@@ -8,6 +8,7 @@ import numpy as np
 from .utils import _gather_feat, _transpose_and_gather_feat
 from Objectron.objectron.dataset.box import Box
 from pytorch3d.transforms import quaternion_to_matrix
+import matplotlib.pyplot as plt
 
 def _nms(heat, kernel=3):
     pad = (kernel - 1) // 2
@@ -579,6 +580,10 @@ def det3d_decode(heat, dim, loc, rot, projection_matrix, reg=None, K=100):
 
     # heat = torch.sigmoid(heat)
     # perform nms on heatmaps
+
+    # plt.imshow(torch.sigmoid(heat)[0][0].cpu())
+    # plt.show()
+
     heat = _nms(heat)
 
     scores, inds, clses, ys, xs = _topk(heat, K=K)

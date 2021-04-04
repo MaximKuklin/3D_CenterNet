@@ -58,10 +58,10 @@ def main(opt):
   train_loader = torch.utils.data.DataLoader(
       Dataset(opt, 'train'), 
       batch_size=opt.batch_size, 
-      shuffle=True,
+      shuffle=False,
       num_workers=opt.num_workers,
       pin_memory=True,
-      drop_last=True
+      drop_last=False
   )
 
   print('Starting training...')

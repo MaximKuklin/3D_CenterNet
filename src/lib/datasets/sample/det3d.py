@@ -12,11 +12,14 @@ from utils.image import flip, color_aug
 from utils.image import get_affine_transform, affine_transform
 from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian
 from utils.image import draw_dense_reg
+from scipy.spatial.transform import Rotation as R
+from models.decode import project_points
+from Objectron.objectron.dataset.box import Box
 import math
 import matplotlib.pyplot as plt
 
 
-DEBUG = False
+DEBUG = True
 
 class Dataset3D(data.Dataset):
     def _coco_box_to_bbox(self, box):
@@ -139,11 +142,57 @@ class Dataset3D(data.Dataset):
             else:
                 plot_img = inp.copy()
 
-            plot_img = cv2.resize(plot_img, (output_w, output_h))
-            plt.imshow(plot_img)
-            plt.show()
-            plt.imshow(heat_map[0])
-            plt.show()
+            plot_img = cv2.resize(plot_img, (input_w, input_h))
+
+            projection_matrix = np.array(
+                [[1.62688887e+00, 0.00000000e+00, 2.46072412e-02, 0.00000000e+00],
+                 [0.00000000e+00, 2.16918516e+00, 7.03930855e-04, 0.00000000e+00],
+                 [0.00000000e+00, 0.00000000e+00, - 9.99999762e-01, - 9.99999815e-04],
+                 [0.00000000e+00, 0.00000000e+00, - 1.00000000e+00, 0.00000000e+00]
+                 ])
+
+            for i in range(num_objs):
+                self.plot(plot_img*255, ret['loc'][i], ret['dim'][i], ret['rot'][i], projection_matrix, input_h, input_w )
+
+            # plt.imshow(plot_img)
+            # plt.show()
+            # plt.imshow(heat_map[0])
+            # plt.show()
 
 
         return ret
+
+    def plot(self, image, loc, dim, rot, proj, input_h, input_w):
+        image = image.astype(np.uint8)
+        if rot.shape == (4,):
+            rot = R.from_quat(rot).as_rotvec()
+            # rot[0], rot[2] = 0, 0
+            # rot = R.from_rotvec(rot).as_matrix()
+        box = Box.from_transformation(rot, loc, dim).vertices
+        points_2d = project_points(box, proj).T[:2]
+        points_2d[0] *= input_w
+        points_2d[1] *= input_h
+
+        points_2d = points_2d.astype(int).T
+
+        lines = (
+            [1, 5], [2, 6], [3, 7], [4, 8],  # lines along x-axis
+            [1, 3], [5, 7], [2, 4], [6, 8],  # lines along y-axis
+            [1, 2], [3, 4], [5, 6], [7, 8]  # lines along z-axis
+        )
+
+        for dot in points_2d:
+            cv2.circle(image, (dot[0], dot[1]), 3, (125, 125, 125), -1)
+        for ids in lines:
+            cv2.line(
+                image,
+                (points_2d[ids[0]][0], points_2d[ids[0]][1]),
+                (points_2d[ids[1]][0], points_2d[ids[1]][1]),
+                (125, 125, 125),
+                thickness=1
+            )
+        # for i in range(9):
+        #     cv2.line(image, int(points_2d[0][i]), int(points_2d[1][i]), (125, 125, 125), thickness=2)
+
+        cv2.imshow('a', image)
+        cv2.waitKey(0)

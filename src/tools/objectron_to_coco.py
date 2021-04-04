@@ -154,6 +154,7 @@ def get_video_annotation(anno_video_map):
         cap = cv2.VideoCapture(video)
         frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         for i in range(frames):
+            if i >= 10: break
             _, image = cap.read()
 
             data, anno_counter, aux = get_frame_annotation(sequence, i, image_counter, anno_counter)
@@ -211,8 +212,8 @@ def parse_args():
 
 def main():
 
-    with open('/media/hdd/datasets/coco/coco/annotations/instances_val2017.json', 'r') as f:
-        example = json.load(f)
+    # with open('/media/hdd/datasets/coco/coco/annotations/instances_val2017.json', 'r') as f:
+    #     example = json.load(f)
 
     args = parse_args()
     root_obj = args.dataset
@@ -220,7 +221,7 @@ def main():
     if args.save is not None:
         save = args.save
     else:
-        save = join(root_obj, 'coco_converted', 'coco_3d_annotations.json')
+        save = join(root_obj, 'coco_converted', 'coco_3d_annotations_debug.json')
 
     save_dir = os.path.dirname(save)
     if not os.path.exists(save_dir):

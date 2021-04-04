@@ -43,7 +43,7 @@ class Detector3D(BaseDetector):
         [0.00000000e+00, 0.00000000e+00, - 1.00000000e+00, 0.00000000e+00]
       ])
 
-      dets = det3d_decode(hm, dim, loc, rot, projection_matrix, reg=reg, K=1)
+      dets = det3d_decode(hm, dim, loc, rot, projection_matrix, reg=reg, K=2)
       
     if return_time:
       return output, dets, forward_time

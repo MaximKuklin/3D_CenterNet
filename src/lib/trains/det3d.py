@@ -17,7 +17,7 @@ from .base_trainer import BaseTrainer
 class Det3DLoss(torch.nn.Module):
   def __init__(self, opt):
     super(Det3DLoss, self).__init__()
-    self.crit = torch.nn.MSELoss() # if opt.mse_loss else FocalLoss()
+    self.crit = torch.nn.MSELoss() if opt.mse_loss else FocalLoss()
     self.crit_reg = RegL1Loss() if opt.reg_loss == 'l1' else \
               RegLoss() if opt.reg_loss == 'sl1' else None
     self.crit_wh = torch.nn.L1Loss(reduction='sum') if opt.dense_wh else \
@@ -30,6 +30,7 @@ class Det3DLoss(torch.nn.Module):
     hm_loss, off_loss, dim_loss, rot_loss, loc_loss = 0, 0, 0, 0, 0
     for s in range(opt.num_stacks):
       output = outputs[s]
+      output['hm'] = _sigmoid(output['hm'])
       hm_loss += self.crit(output['hm'], batch['hm']) / opt.num_stacks
       if opt.dim_weight > 0:
           dim_loss += self.crit_reg(
