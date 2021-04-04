@@ -76,7 +76,7 @@ class Dataset3D(data.Dataset):
         # proj_points = np.zeros([self.max_objs, 2], dtype=np.int32)
         scales = np.zeros([self.max_objs, 3], dtype=np.float32)
         translations = np.zeros([self.max_objs, 3], dtype=np.float32)
-        rotvecs = np.zeros([self.max_objs, 4], dtype=np.float32)
+        rotvecs = np.zeros([self.max_objs, 3], dtype=np.float32)
         reg_mask = np.zeros([self.max_objs], dtype=np.uint8)
         ind = np.zeros((self.max_objs), dtype=np.int64)
         reg = np.zeros((self.max_objs, 2), dtype=np.float32)
@@ -88,6 +88,7 @@ class Dataset3D(data.Dataset):
             bbox = np.array(ann['bbox'])
             scale = np.array(ann['scale'])
             rot_quat = np.array(ann['rot_quat'])
+            rot_angles = R.from_quat(rot_quat).as_euler('zyx') * 180/math.pi
             translation = np.array(ann['translation'])
             keypoints_2d = np.array(ann['keypoints_2d'])
 
@@ -110,7 +111,7 @@ class Dataset3D(data.Dataset):
                 draw_umich_gaussian(heat_map[cls_id], ct_int, radius)
                 scales[k] = scale
                 translations[k] = translation
-                rotvecs[k] = rot_quat
+                rotvecs[k] = rot_angles
 
                 ind[k] = ct_int[1] * output_w + ct_int[0]
                 reg[k] = ct - ct_int

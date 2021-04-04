@@ -339,7 +339,7 @@ class opts(object):
         opt.heads.update({'hp_offset': 2})
     elif opt.task == 'det3d':
       assert opt.dataset in ['objectron']
-      opt.heads = {'hm': opt.num_classes, 'dim': 3, 'rot': 4, 'loc': 3}
+      opt.heads = {'hm': opt.num_classes, 'dim': 3, 'rot': 3, 'loc': 3}
       if opt.reg_offset:
         opt.heads.update({'reg': 2})
     else:
