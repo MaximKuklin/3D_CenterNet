@@ -255,9 +255,12 @@ class Debugger(object):
     if not self.ipynb:
       for i, v in self.imgs.items():
         cv2.imshow('{}'.format(i), v)
-      if cv2.waitKey(0 if pause else 1) == 27:
+      k = cv2.waitKey(0 if pause else 1)
+      if k == 27:
         import sys
         sys.exit(0)
+      elif k == ord('s'):
+        self.save_img(imgId=str(i), path='/media/data/Projects/3D_CenterNet/vis')
     else:
       self.ax = None
       nImgs = len(self.imgs)

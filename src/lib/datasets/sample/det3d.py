@@ -14,7 +14,7 @@ from utils.image import gaussian_radius, draw_umich_gaussian, draw_msra_gaussian
 from utils.image import draw_dense_reg
 import math
 import matplotlib.pyplot as plt
-
+from scipy.spatial.transform import Rotation as R
 
 DEBUG = False
 

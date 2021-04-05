@@ -17,7 +17,7 @@ from .base_trainer import BaseTrainer
 class Det3DLoss(torch.nn.Module):
   def __init__(self, opt):
     super(Det3DLoss, self).__init__()
-    self.crit = torch.nn.MSELoss() # if opt.mse_loss else FocalLoss()
+    self.crit = torch.nn.MSELoss() if opt.mse_loss else FocalLoss()
     self.crit_reg = RegL1Loss() if opt.reg_loss == 'l1' else \
               RegLoss() if opt.reg_loss == 'sl1' else None
     self.crit_wh = torch.nn.L1Loss(reduction='sum') if opt.dense_wh else \
@@ -30,6 +30,7 @@ class Det3DLoss(torch.nn.Module):
     hm_loss, off_loss, dim_loss, rot_loss, loc_loss = 0, 0, 0, 0, 0
     for s in range(opt.num_stacks):
       output = outputs[s]
+      output['hm'] = _sigmoid(output['hm'])
       hm_loss += self.crit(output['hm'], batch['hm']) / opt.num_stacks
       if opt.dim_weight > 0:
           dim_loss += self.crit_reg(
@@ -49,17 +50,22 @@ class Det3DLoss(torch.nn.Module):
         off_loss += self.crit_reg(output['reg'], batch['reg_mask'],
                              batch['ind'], batch['reg']) / opt.num_stacks
         
-    loss = opt.hm_weight * hm_loss + opt.off_weight * off_loss \
+    loss = opt.hm_weight * hm_loss \
            + opt.dim_weight * dim_loss + opt.loc_weight * loc_loss \
            + opt.rot_weight * rot_loss
+
+    if opt.reg_offset:
+      loss += opt.off_weight * off_loss
 
     loss_stats = {
       'loss': loss,
       'hm_loss': hm_loss,
       'dim_loss': dim_loss,
       'rot_loss': rot_loss,
-      'loc_loss': loc_loss
+      'loc_loss': loc_loss,
     }
+    if opt.reg_offset:
+      loss_stats.update({'off_loss': off_loss})
 
     return loss, loss_stats
 
@@ -68,7 +74,7 @@ class Det3DTrainer(BaseTrainer):
     super(Det3DTrainer, self).__init__(opt, model, optimizer=optimizer)
   
   def _get_losses(self, opt):
-    loss_states = ['loss', 'hm_loss', 'dim_loss', 'rot_loss', 'loc_loss']
+    loss_states = ['loss', 'hm_loss', 'dim_loss', 'rot_loss', 'loc_loss', 'off_loss']
     loss = Det3DLoss(opt)
     return loss_states, loss
 
