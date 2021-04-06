@@ -7,7 +7,7 @@ import torch.nn as nn
 import numpy as np
 from .utils import _gather_feat, _transpose_and_gather_feat
 from Objectron.objectron.dataset.box import Box
-from pytorch3d.transforms import quaternion_to_matrix, euler_angles_to_matrix
+# from pytorch3d.transforms import quaternion_to_matrix, euler_angles_to_matrix
 import matplotlib.pyplot as plt
 import math
 from scipy.spatial.transform import Rotation as R
@@ -599,7 +599,7 @@ def det3d_decode(heat, dim, loc, rot, projection_matrix, reg=None, K=100):
 
     dim = dim.view(batch, K, 3).squeeze(0).cpu().numpy()
     loc = loc.view(batch, K, 3).squeeze(0).cpu().numpy()
-    rot = rot.view(batch, K, 3).squeeze(0) * math.pi / 180
+    rot = rot.view(batch, K, 3).squeeze(0) # * math.pi / 180
 
     # rot_mat = euler_angles_to_matrix(rot, 'YZX').cpu().numpy()
     # rot_mat = euler_angles_to_matrix(rot, 'ZYX').cpu().numpy()

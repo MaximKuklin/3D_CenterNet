@@ -88,7 +88,7 @@ class Dataset3D(data.Dataset):
             bbox = np.array(ann['bbox'])
             scale = np.array(ann['scale'])
             rot_quat = np.array(ann['rot_quat'])
-            rot_angles = R.from_quat(rot_quat).as_euler('zyx') * 180/math.pi
+            rot_angles = R.from_quat(rot_quat).as_euler('zyx') # * 180/math.pi
             translation = np.array(ann['translation'])
             keypoints_2d = np.array(ann['keypoints_2d'])
 
