@@ -33,6 +33,8 @@ def get_extensions():
             "-D__CUDA_NO_HALF_OPERATORS__",
             "-D__CUDA_NO_HALF_CONVERSIONS__",
             "-D__CUDA_NO_HALF2_OPERATORS__",
+            "--gpu-architecture=compute_52",
+            "--gpu-code=compute_52,sm_52,sm_86",
         ]
     else:
         # raise NotImplementedError('Cuda is not available')
