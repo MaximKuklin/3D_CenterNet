@@ -12,7 +12,8 @@ from scipy.spatial.transform import Rotation as R
 
 CLASSES = ['shoe']
 
-TEST = True
+TEST = False
+FRAME_RATE = 30  # get only every n-th frame from video
 
 
 def convert(root_obj, index_objectron='Objectron/index', mode='train'):
@@ -86,7 +87,7 @@ def get_frame_annotation(sequence, frame_id, image_id, anno_counter, image=None)
         scale = box.scale.tolist()
         translation = box.translation.tolist()
         rot_mat = box.rotation
-        rot_quat = R.from_matrix(rot_mat).as_quat().tolist()
+        rot_euler = R.from_matrix(rot_mat).as_euler('zyx').tolist()
         bbox = np.array([
                 min(object_keypoints_2d[i].T[:2][0]), min(object_keypoints_2d[i].T[:2][1]),
                 max(object_keypoints_2d[i].T[:2][0]), max(object_keypoints_2d[i].T[:2][1])
@@ -94,12 +95,12 @@ def get_frame_annotation(sequence, frame_id, image_id, anno_counter, image=None)
 
         if TEST:
             box = Box().from_transformation(
-                R.from_quat(rot_quat).as_matrix(),
+                R.from_euler('zyx', rot_euler).as_matrix(),
                 np.array(translation),
                 np.array(scale)
             ).vertices
 
-            assert np.allclose(box, object_keypoints_3d[i], atol=1e-4)
+            assert np.allclose(box, object_keypoints_3d[i], atol=1e-3)
 
             points_2d = project_points(box, np.array(projection_matrix))
 
@@ -118,7 +119,7 @@ def get_frame_annotation(sequence, frame_id, image_id, anno_counter, image=None)
             "id": anno_counter,
             "scale": scale,
             "translation": translation,
-            "rot_quat": rot_quat
+            "rot": rot_euler
         }
         annotations_list.append(anno)
         anno_counter += 1
@@ -154,6 +155,8 @@ def get_video_annotation(anno_video_map):
         cap = cv2.VideoCapture(video)
         frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         for i in range(frames):
+            if i % FRAME_RATE != 0:
+                continue
             _, image = cap.read()
 
             data, anno_counter, aux = get_frame_annotation(sequence, i, image_counter, anno_counter)
@@ -189,7 +192,7 @@ def parse_index(files, dataset_path):
     for file in files:
         with open(file) as f:
             data = [line[:-1] for line in f.readlines()]
-        data = ['shoe/batch-4/44']
+        # data = ['shoe/batch-4/44']
         for d in data:
             item_ann = join(dataset_path, d + '.pbdata')
             item_video = join(dataset_path, d, 'video.MOV')
@@ -211,16 +214,13 @@ def parse_args():
 
 def main():
 
-    with open('/media/hdd/datasets/coco/coco/annotations/instances_val2017.json', 'r') as f:
-        example = json.load(f)
-
     args = parse_args()
     root_obj = args.dataset
     index_objectron = args.index
     if args.save is not None:
         save = args.save
     else:
-        save = join(root_obj, 'coco_converted', 'coco_3d_annotations.json')
+        save = join(root_obj, 'coco_converted', 'objectron_every_30.json')
 
     save_dir = os.path.dirname(save)
     if not os.path.exists(save_dir):
