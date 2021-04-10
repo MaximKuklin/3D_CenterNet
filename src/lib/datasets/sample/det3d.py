@@ -90,20 +90,21 @@ class Dataset3D(data.Dataset):
             ann = anns[k]
             bbox = np.array(ann['bbox'])
             scale = np.array(ann['scale'])
-            rot_quat = np.array(ann['rot_quat'])
-            rot_angles = R.from_quat(rot_quat).as_euler('zyx') # * 180/math.pi
+            rot_angles = np.array(ann['rot'])
             translation = np.array(ann['translation'])
             keypoints_2d = np.array(ann['keypoints_2d'])
 
             ct = keypoints_2d[0][:2]
             ct[0], ct[1] = ct[0] * output_h, ct[1] * output_w
+            ct[0], ct[1] = np.clip(ct[0], 0, output_w - 1), np.clip(ct[1], 0, output_w - 1)
+
             cls_id = int(self.cat_ids[ann['category_id']])
 
             bbox[[0, 2]] *= output_w
             bbox[[1, 3]] *= output_h
 
-            # bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, output_w - 1)
-            # bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, output_h - 1)
+            bbox[[0, 2]] = np.clip(bbox[[0, 2]], 0, output_w - 1)
+            bbox[[1, 3]] = np.clip(bbox[[1, 3]], 0, output_h - 1)
 
             h, w = bbox[3] - bbox[1], bbox[2] - bbox[0]
             if h > 0 and w > 0:
