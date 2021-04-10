@@ -21,7 +21,7 @@ class Objectron(data.Dataset):
 
     def __init__(self, opt, split):
         super(Objectron, self).__init__()
-        self.data_dir = os.path.join(opt.data_dir, 'objectron')
+        self.data_dir = os.path.join(opt.data_dir, 'Objectron')
         self.img_dir = self.data_dir
         if split == 'test':
             self.annot_path = os.path.join(
@@ -35,7 +35,7 @@ class Objectron(data.Dataset):
             else:
                 self.annot_path = os.path.join(
                     self.data_dir, 'annotations',
-                    'coco_3d_annotations.json').format(split)
+                    'objectron_cleared.json').format(split)
         self.max_objs = 20
         self.class_name = [
             '__background__', 'shoe'
