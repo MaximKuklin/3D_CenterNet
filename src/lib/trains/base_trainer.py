@@ -2,11 +2,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import time
 import torch
 from progress.bar import Bar
 from models.data_parallel import DataParallel
 from utils.utils import AverageMeter
+from torch.utils.tensorboard import SummaryWriter
 
 
 class ModelWithLoss(torch.nn.Module):
@@ -27,6 +29,7 @@ class BaseTrainer(object):
     self.optimizer = optimizer
     self.loss_stats, self.loss = self._get_losses(opt)
     self.model_with_loss = ModelWithLoss(model, self.loss)
+    self.tb_logger = SummaryWriter(os.path.join(self.opt.save_dir, "tb_logs"))
 
   def set_device(self, gpus, chunk_sizes, device):
     if len(gpus) > 1:
@@ -82,6 +85,7 @@ class BaseTrainer(object):
         avg_loss_stats[l].update(
           loss_stats[l].mean().item(), batch['input'].size(0))
         Bar.suffix = Bar.suffix + '|{} {:.4f} '.format(l, avg_loss_stats[l].avg)
+        self.tb_logger.add_scalar(f"train/{l}", avg_loss_stats[l].avg, (epoch-1)*num_iters + iter_id)
       if not opt.hide_data_time:
         Bar.suffix = Bar.suffix + '|Data {dt.val:.3f}s({dt.avg:.3f}s) ' \
           '|Net {bt.avg:.3f}s'.format(dt=data_time, bt=batch_time)
