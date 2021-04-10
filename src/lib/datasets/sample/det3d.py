@@ -30,6 +30,14 @@ class Dataset3D(data.Dataset):
             i *= 2
         return border // i
 
+
+    def grab_frame(self, video_path, frame):
+        cap = cv2.VideoCapture(video_path)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
+        _, img = cap.read()
+        cap.release()
+        return img
+
     def __getitem__(self, index):
         img_id = self.images[index]
         video_info = self.coco.loadImgs(ids=[img_id])[0]
@@ -40,13 +48,8 @@ class Dataset3D(data.Dataset):
         anns = self.coco.loadAnns(ids=ann_ids)
         num_objs = min(len(anns), self.max_objs)
 
-        # get image
-        cap = cv2.VideoCapture(video_path)
-        cap.set(1, frame)
-        _, img = cap.read()
-
+        img = self.grab_frame(video_path, frame)
         # get image shape and center
-        height, width = img.shape[0], img.shape[1]
         c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
 
         s = max(img.shape[0], img.shape[1]) * 1.0
