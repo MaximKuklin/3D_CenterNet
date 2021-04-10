@@ -85,6 +85,9 @@ def main(opt):
         best = log_dict_val[opt.metric]
         save_model(os.path.join(opt.save_dir, 'model_best.pth'), 
                    epoch, model)
+    elif opt.save_all:
+      save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)),
+                 epoch, model)
     else:
       save_model(os.path.join(opt.save_dir, 'model_last.pth'), 
                  epoch, model, optimizer)

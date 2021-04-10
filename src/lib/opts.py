@@ -46,7 +46,8 @@ class opts(object):
     # log
     self.parser.add_argument('--root_dir', type=str,
                              help='path to save things (logs, weights, etc.)')
-
+    self.parser.add_argument('--save_dir', type=str, required=True,
+                             help='Path to save logs, weights and so on')
     self.parser.add_argument('--print_iter', type=int, default=0, 
                              help='disable progress bar and print to screen.')
     self.parser.add_argument('--hide_data_time', action='store_true',
@@ -279,7 +280,7 @@ class opts(object):
     root_dir = os.path.join(os.path.dirname(__file__), '..', '..')
     opt.data_dir = os.path.join(root_dir, 'data')
 
-    opt.exp_dir = os.path.join(opt.root_dir, 'exp', opt.task)
+    opt.exp_dir = os.path.join(opt.save_dir, 'exp', opt.task)
     opt.save_dir = os.path.join(opt.exp_dir, opt.exp_id)
     opt.debug_dir = os.path.join(opt.save_dir, 'debug')
     print('The output will be saved to ', opt.save_dir)
