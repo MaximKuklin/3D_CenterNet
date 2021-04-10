@@ -157,7 +157,11 @@ def get_video_annotation(anno_video_map):
         for i in range(frames):
             if i % FRAME_RATE != 0:
                 continue
-            _, image = cap.read()
+            cap.set(1, i)
+            ret, image = cap.read()
+            if not ret:
+                print(f"cant get frame {i} from {video}")
+                continue
 
             data, anno_counter, aux = get_frame_annotation(sequence, i, image_counter, anno_counter)
             annotations.extend(data)
@@ -220,7 +224,7 @@ def main():
     if args.save is not None:
         save = args.save
     else:
-        save = join(root_obj, 'coco_converted', 'objectron_every_30.json')
+        save = join(root_obj, 'coco_converted', 'objectron_cleared.json')
 
     save_dir = os.path.dirname(save)
     if not os.path.exists(save_dir):
