@@ -99,4 +99,4 @@ class Detector3D(BaseDetector):
       for bbox in results[j]:
         if bbox[-2] > self.opt.vis_thresh:
           debugger.add_coco_3d_box(bbox[:27], j - 1, bbox[-2], img_id='ctdet')
-    debugger.show_all_imgs(pause=True)
+    debugger.show_all_imgs(pause=self.pause)
