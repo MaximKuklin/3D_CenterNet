@@ -64,6 +64,9 @@ def load_model(model, model_path, optimizer=None, resume=False,
       state_dict[k] = model_state_dict[k]
   model.load_state_dict(state_dict, strict=False)
 
+  if resume:
+    start_epoch = checkpoint['epoch']
+
   # resume optimizer parameters
   if optimizer is not None and resume:
     if 'optimizer' in checkpoint:
