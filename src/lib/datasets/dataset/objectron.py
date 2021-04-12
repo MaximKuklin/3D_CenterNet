@@ -26,7 +26,7 @@ class Objectron(data.Dataset):
         if split == 'test':
             self.annot_path = os.path.join(
                 self.data_dir, 'annotations',
-                'objectron_cleared.json').format(split)
+                'objectron_cleared_test.json').format(split)
         else:
             if opt.task == 'exdet':
                 self.annot_path = os.path.join(

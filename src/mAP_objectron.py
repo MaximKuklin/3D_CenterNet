@@ -144,7 +144,7 @@ def calc_metric(opt):
     frames = []
 
     for idx, (img_id, pre_processed_images, boxes_gt) in enumerate(tqdm.tqdm(data_loader)):
-        if idx >= 1000: break
+
         ret = detector.run(pre_processed_images)
         boxes_3d = [ret['results'][i][:, 27:-2] for i in ret['results']][0]
         probs = [ret['results'][i][:, -2] for i in ret['results']][0]
