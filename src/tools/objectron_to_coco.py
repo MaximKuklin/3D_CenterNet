@@ -249,7 +249,7 @@ def main():
         save = join(root_obj, 'coco_converted', 'objectron_cleared_train.json')
 
     save_dir = os.path.dirname(save)
-    save_images_dir = join(save_dir, 'images')
+    save_images_dir = join(root_obj, 'images_train')
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)

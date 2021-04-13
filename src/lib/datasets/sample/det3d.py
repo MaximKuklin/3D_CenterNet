@@ -42,13 +42,13 @@ class Dataset3D(data.Dataset):
         img_id = self.images[index]
         video_info = self.coco.loadImgs(ids=[img_id])[0]
         file_name = video_info['file_name']
-        frame = video_info['frame']
-        video_path = os.path.join(self.img_dir, file_name)
+        image_path = os.path.join(self.img_dir, file_name)
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         anns = self.coco.loadAnns(ids=ann_ids)
         num_objs = min(len(anns), self.max_objs)
 
-        img = self.grab_frame(video_path, frame)
+
+        img = cv2.imread(image_path)
         # get image shape and center
         c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
 
