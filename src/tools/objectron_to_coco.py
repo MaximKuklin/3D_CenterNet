@@ -1,14 +1,17 @@
+import argparse
 import os
 from os.path import join
-import json
-from tqdm import tqdm
+
 import cv2
-import glob
-import argparse
-from Objectron.objectron.schema import annotation_data_pb2 as annotation_protocol
+import json
 import numpy as np
-from Objectron.objectron.dataset.box import Box
 from scipy.spatial.transform import Rotation as R
+from tqdm import tqdm
+import albumentations as A
+from PIL import Image
+
+from Objectron.objectron.dataset.box import Box
+from Objectron.objectron.schema import annotation_data_pb2 as annotation_protocol
 
 CLASSES = ['shoe']
 
@@ -16,18 +19,18 @@ TEST = False
 FRAME_RATE = 30  # get only every n-th frame from video
 
 
-def convert(root_obj, index_objectron='Objectron/index', mode='train'):
+def convert(root_obj, image_dir, index_objectron='Objectron/index', mode='train'):
     annotation_files = [join(index_objectron, "_".join((cls, 'annotations', mode))) for cls in CLASSES]
 
     anno_to_video = parse_index(annotation_files, root_obj)
 
     info = {
-        "description": "COCO 2017 Dataset",
-        "url": "http://cocodataset.org",
+        "description": "Objectron 2020 Dataset",
+        "url": "https://github.com/google-research-datasets/Objectron",
         "version": "1.0",
-        "year": 2017,
-        "contributor": "COCO Consortium",
-        "date_created": "2017/09/01"
+        "year": 2020,
+        "contributor": "Google",
+        "date_created": "2021/03/13"
         }
     licences = [{
         "url": "",
@@ -41,7 +44,7 @@ def convert(root_obj, index_objectron='Objectron/index', mode='train'):
         "name": "shoe"
     }]
 
-    image_info, annotations = get_video_annotation(anno_to_video)
+    image_info, annotations = get_video_annotation(anno_to_video, image_dir)
 
     result = {
         "info": info,
@@ -52,6 +55,7 @@ def convert(root_obj, index_objectron='Objectron/index', mode='train'):
     }
 
     return result
+
 
 def get_frame_annotation(sequence, frame_id, image_id, anno_counter, image=None):
 
@@ -143,7 +147,26 @@ def project_points(p_3d_cam, projection_matrix):
     return pixels
 
 
-def get_video_annotation(anno_video_map):
+def get_image_name(video_path, frame, save_folder):
+    video_path = video_path.split('/')
+    batch = video_path[-3].split('-')[-1]
+    video_id = video_path[-2]
+    save_path = f"{batch}_{video_id}_{frame}.png"
+    save_path = join(save_folder, save_path)
+    return save_path
+
+
+def save_image(img, path, size=640):
+    img = A.smallest_max_size(img, size, cv2.INTER_LINEAR)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    im = Image.fromarray(img)
+    im.save(path)
+    w, h = img.shape[1], img.shape[0]
+
+    return img, (w, h)
+
+
+def get_video_annotation(anno_video_map, image_dir):
     image_counter = 1
     anno_counter = 1
     images = []
@@ -159,23 +182,25 @@ def get_video_annotation(anno_video_map):
                 continue
             cap.set(1, i)
             ret, image = cap.read()
+            image_path = get_image_name(video, i, image_dir)
             if not ret:
                 print(f"cant get frame {i} from {video}")
                 continue
 
+            _, (w, h) = save_image(image, image_path)
+
             data, anno_counter, aux = get_frame_annotation(sequence, i, image_counter, anno_counter)
             annotations.extend(data)
 
-            filename = join(*video.split('/')[-4:])
+            filename = os.path.basename(image_path)
 
             image_info = {
                 "license": 1,
                 "file_name": filename,
-                "frame": i,
                 "coco_url": "",
-                "height": int(image.shape[0]),
-                "width": int(image.shape[1]),
-                "date_captured": "2013-11-14 17:02:52",
+                "height": int(h),
+                "width": int(w),
+                "date_captured": "",
                 "flickr_url": "",
                 "id": image_counter,
                 **aux
@@ -185,9 +210,6 @@ def get_video_annotation(anno_video_map):
             image_counter += 1
 
     return images, annotations
-
-
-
 
 
 def parse_index(files, dataset_path):
@@ -224,12 +246,17 @@ def main():
     if args.save is not None:
         save = args.save
     else:
-        save = join(root_obj, 'coco_converted', 'objectron_cleared.json')
+        save = join(root_obj, 'coco_converted', 'objectron_cleared_train.json')
 
     save_dir = os.path.dirname(save)
+    save_images_dir = join(save_dir, 'images')
+
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    coco_converted = convert(root_obj, index_objectron)
+    if not os.path.exists(save_images_dir):
+        os.makedirs(save_images_dir)
+
+    coco_converted = convert(root_obj, save_images_dir, index_objectron)
 
     with open(save, 'w') as f:
         json.dump(coco_converted, f)
