@@ -210,6 +210,13 @@ class Debugger(object):
         [1, 2], [3, 4], [5, 6], [7, 8]   # lines along z-axis
     )
 
+    FACE = np.array([
+        [2, 6], [8, 4]
+    ])
+    BOTTOM = np.array([
+        [1, 2], [6, 5]
+    ])
+    alpha = 0.4
     for dot in bbox:
         cv2.circle(self.imgs[img_id], (dot[0], dot[1]), 10, c, -1)
     for ids in lines:
@@ -226,6 +233,14 @@ class Debugger(object):
                       (bbox[0][0] + cat_size[0], bbox[0][1] - 2), c, -1)
         cv2.putText(self.imgs[img_id], txt, (bbox[0][0], bbox[0][1] - 2),
                     font, 0.5, (0, 0, 0), thickness=1, lineType=cv2.LINE_AA)
+
+    overlay = self.imgs[img_id].copy()
+    poly = bbox[FACE].reshape((-1, 1, 2)).astype(np.int32)
+    cv2.drawContours(overlay, [poly], -1, c, thickness=-1)
+    poly = bbox[BOTTOM].reshape((-1, 1, 2)).astype(np.int32)
+    cv2.drawContours(overlay, [poly], -1, c, thickness=-1)
+
+    self.imgs[img_id] = cv2.addWeighted(overlay, alpha, self.imgs[img_id], 1 - alpha, 0)
 
   def add_coco_hp(self, points, img_id='default'): 
     points = np.array(points, dtype=np.int32).reshape(self.num_joints, 2)

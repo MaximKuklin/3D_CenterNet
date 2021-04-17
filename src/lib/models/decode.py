@@ -612,8 +612,8 @@ def det3d_decode(heat, dim, loc, rot, projection_matrix, reg=None, K=100):
 
     boxes_2d = [project_points(boxes_3d[i].vertices, projection_matrix) for i in range(K)]
     boxes_2d = torch.tensor(boxes_2d).view(batch, K, -1).cuda()
-
-    dets = torch.cat([boxes_2d, scores, clses], dim=2)
+    boxes_3d = torch.tensor([box_3d.vertices for box_3d in boxes_3d]).view(batch, K, -1).cuda()
+    dets = torch.cat([boxes_2d, boxes_3d, scores, clses], dim=2)
 
     return dets
 

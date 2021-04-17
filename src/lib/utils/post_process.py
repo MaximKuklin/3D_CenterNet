@@ -121,13 +121,13 @@ def det3d_post_process(dets, c, s, h, w, num_classes):
   h = c[0][1]*2
   for i in range(dets.shape[0]):
     top_preds = {}
-    dets[i, :, :-2][:, 0::3] *= w
-    dets[i, :, :-2][:, 1::3] *= h
+    dets[i, :, :27][:, 0::3] *= w
+    dets[i, :, :27][:, 1::3] *= h
     classes = dets[i, :, -1]
     for j in range(num_classes):
       inds = (classes == j)
       top_preds[j + 1] = np.concatenate([
-        dets[i, inds, :27].astype(np.float32),
-        dets[i, inds, 27:].astype(np.float32)], axis=1).tolist()
+        dets[i, inds, :54].astype(np.float32),
+        dets[i, inds, 54:].astype(np.float32)], axis=1).tolist()
     ret.append(top_preds)
   return ret

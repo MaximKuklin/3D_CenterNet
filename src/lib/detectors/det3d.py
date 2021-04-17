@@ -57,7 +57,7 @@ class Detector3D(BaseDetector):
         dets.copy(), [meta['c']], [meta['s']],
         meta['out_height'], meta['out_width'], self.opt.num_classes)
     for j in range(1, self.num_classes + 1):
-      dets[0][j] = np.array(dets[0][j], dtype=np.float32).reshape(-1, 29)
+      dets[0][j] = np.array(dets[0][j], dtype=np.float32).reshape(-1, 56)
       # dets[0][j][:, :4] /= scale
     return dets[0]
 
@@ -99,4 +99,4 @@ class Detector3D(BaseDetector):
       for bbox in results[j]:
         if bbox[-2] > self.opt.vis_thresh:
           debugger.add_coco_3d_box(bbox[:27], j - 1, bbox[-2], img_id='ctdet')
-    debugger.show_all_imgs(pause=True)
+    debugger.show_all_imgs(pause=self.pause)
