@@ -15,10 +15,38 @@ from utils.image import draw_dense_reg
 import math
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
+import albumentations as A
 
-DEBUG = False
+
+DEBUG = True
+
+if DEBUG:
+    from src.lib.models.decode import project_points
+    from Objectron.objectron.dataset.box import Box
+
 
 class Dataset3D(data.Dataset):
+    def __init__(self, opt):
+        super(Dataset3D, self).__init__()
+        self.opt = opt
+        self.augs = A.Compose([
+            A.Blur(blur_limit=(4, 8), p=0.15),
+            A.ShiftScaleRotate(shift_limit=0.2, scale_limit=(-0.4, 0.2), rotate_limit=0,
+                               border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0), p=0.8),
+            A.OneOf([
+                A.RandomBrightnessContrast(always_apply=True),
+                A.RandomGamma(gamma_limit=(60, 140), always_apply=True),
+                A.CLAHE(always_apply=True)
+            ], p=0.5),
+            A.OneOf([
+                A.RGBShift(),
+                A.HueSaturationValue(),
+                A.ToGray()
+            ], p=0.1)
+        ],
+            keypoint_params=A.KeypointParams(format='xy', remove_invisible=False)
+        )
+
     def _coco_box_to_bbox(self, box):
         bbox = np.array([box[0], box[1], box[0] + box[2], box[1] + box[3]],
                         dtype=np.float32)
@@ -46,21 +74,30 @@ class Dataset3D(data.Dataset):
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         anns = self.coco.loadAnns(ids=ann_ids)
         num_objs = min(len(anns), self.max_objs)
+        input_h, input_w = self.opt.input_h, self.opt.input_w
 
+        centers = np.array([ann['keypoints_2d'] for ann in anns])[:, 0::9, :2]
+        centers = centers.reshape(num_objs, 2)
+
+        centers[:, 0], centers[:, 1] = centers[:, 0] * input_h, centers[:, 1] * input_w
+        centers[:, 0] = np.clip(centers[:, 0], 0, input_h - 1)
+        centers[:, 1] = np.clip(centers[:, 1], 0, input_w - 1)
 
         img = cv2.imread(image_path)
         # get image shape and center
         c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
-
         s = max(img.shape[0], img.shape[1]) * 1.0
-        input_h, input_w = self.opt.input_h, self.opt.input_w
-
 
         trans_input = get_affine_transform(
             c, s, 0, [input_w, input_h])
         inp = cv2.warpAffine(img, trans_input,
                              (input_w, input_h),
                              flags=cv2.INTER_LINEAR)
+
+        augmented = self.augs(image=inp, keypoints=centers)
+        centers = np.array(augmented['keypoints']).reshape(num_objs, 2)
+        centers[:, 0], centers[:, 1] = centers[:, 0] / input_h, centers[:, 1] / input_w
+        inp = augmented['image']
 
         inp = (inp.astype(np.float32) / 255.)
         inp = (inp - self.mean) / self.std
@@ -92,9 +129,8 @@ class Dataset3D(data.Dataset):
             scale = np.array(ann['scale'])
             rot_angles = np.array(ann['rot'])
             translation = np.array(ann['translation'])
-            keypoints_2d = np.array(ann['keypoints_2d'])
 
-            ct = keypoints_2d[0][:2]
+            ct = centers[k][:2]
             ct[0], ct[1] = ct[0] * output_h, ct[1] * output_w
             ct[0], ct[1] = np.clip(ct[0], 0, output_w - 1), np.clip(ct[1], 0, output_w - 1)
 
@@ -122,7 +158,26 @@ class Dataset3D(data.Dataset):
                 reg_mask[k] = 1
 
                 if DEBUG:
+                    # lines = (
+                    #     [1, 5], [2, 6], [3, 7], [4, 8],  # lines along x-axis
+                    #     [1, 3], [5, 7], [2, 4], [6, 8],  # lines along y-axis
+                    #     [1, 2], [3, 4], [5, 6], [7, 8]  # lines along z-axis
+                    # )
+
                     plt.scatter(ct_int[0], ct_int[1])
+                    # r = R.from_euler('zyx', rot_angles).as_matrix()
+                    #
+                    # box_3d = Box.from_transformation(r, translation, scale).vertices
+                    # points_2d = project_points(box_3d, np.array(video_info['projection_matrix']))
+                    # points_2d *= 128
+                    # points_2d = points_2d.astype(int)
+                    # for ids in lines:
+                    #     plt.plot(
+                    #         (points_2d[ids[0]][0], points_2d[ids[1]][0]),
+                    #         (points_2d[ids[0]][1], points_2d[ids[1]][1]),
+                    #         color='r',
+                    #     )
+
 
         ret = {
             'input': inp,
@@ -145,6 +200,7 @@ class Dataset3D(data.Dataset):
                 plot_img = inp.copy()
 
             plot_img = cv2.resize(plot_img, (output_w, output_h))
+            plot_img = cv2.cvtColor(plot_img, cv2.COLOR_BGR2RGB)
             plt.imshow(plot_img)
             plt.show()
             plt.imshow(heat_map[0])
@@ -152,3 +208,4 @@ class Dataset3D(data.Dataset):
 
 
         return ret
+
