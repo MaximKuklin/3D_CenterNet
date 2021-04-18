@@ -10,6 +10,7 @@ import torch
 
 from opts import opts
 from detectors.detector_factory import detector_factory
+from models.model import load_model
 
 image_ext = ['jpg', 'jpeg', 'png', 'webp']
 video_ext = ['mp4', 'mov', 'avi', 'mkv']
@@ -21,6 +22,7 @@ def demo(opt):
   opt.debug = max(opt.debug, 1)
   Detector = detector_factory[opt.task]
   detector = Detector(opt)
+  detector.model = load_model(detector.model, opt.load_model)
 
   if opt.demo == 'webcam' or \
     opt.demo[opt.demo.rfind('.') + 1:].lower() in video_ext:

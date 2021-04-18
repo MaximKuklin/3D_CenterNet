@@ -43,10 +43,10 @@ def main(opt):
 
   print('Setting up data...')
   val_loader = torch.utils.data.DataLoader(
-      Dataset(opt, 'val'), 
+      Dataset(opt, 'test'),
       batch_size=1, 
       shuffle=False,
-      num_workers=1,
+      num_workers=4,
       pin_memory=True
   )
 
@@ -65,7 +65,7 @@ def main(opt):
   )
 
   print('Starting training...')
-  best = 1e10
+  best = 1e-10
   for epoch in range(start_epoch + 1, opt.num_epochs + 1):
     mark = epoch if opt.save_all else 'last'
     log_dict_train, _ = trainer.train(epoch, train_loader)
@@ -75,15 +75,19 @@ def main(opt):
       logger.write('{} {:8f} | '.format(k, v))
 
     if opt.val_intervals > 0 and epoch % opt.val_intervals == 0:
-      save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(mark)), 
-                 epoch, model, optimizer)
+      save_model(os.path.join(opt.save_dir, 'model_{}.pth'.format(epoch)),
+                 epoch, model)
       with torch.no_grad():
-        log_dict_val, preds = trainer.val(epoch, val_loader)
-      for k, v in log_dict_val.items():
-        logger.scalar_summary('val_{}'.format(k), v, epoch)
-        logger.write('{} {:8f} | '.format(k, v))
-      if log_dict_val[opt.metric] < best:
-        best = log_dict_val[opt.metric]
+        # FIXME: yeah, i like hardcode
+        trainer.detector.model = load_model(
+            trainer.detector.model,
+            os.path.join(opt.save_dir, f'model_{epoch}.pth'),
+        )
+        mAP_05, mAP_05_095 = trainer.val(epoch, val_loader)
+        print(f"Epoch {epoch} | COCO mAP [IoU=0.50] - {mAP_05:.3f}")
+        print(f"Epoch {epoch} | COCO mAP [IoU=0.50:0.95] - {mAP_05_095:.3f}")
+      if mAP_05 > best:
+        best = mAP_05
         save_model(os.path.join(opt.save_dir, 'model_best.pth'), 
                    epoch, model)
     elif opt.save_all:

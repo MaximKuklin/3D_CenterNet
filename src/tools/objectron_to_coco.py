@@ -246,17 +246,17 @@ def main():
     if args.save is not None:
         save = args.save
     else:
-        save = join(root_obj, 'coco_converted', 'objectron_cleared_train.json')
+        save = join(root_obj, 'coco_converted', 'objectron_cleared_val.json')
 
     save_dir = os.path.dirname(save)
-    save_images_dir = join(root_obj, 'images_train')
+    save_images_dir = join(root_obj, 'images_val')
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     if not os.path.exists(save_images_dir):
         os.makedirs(save_images_dir)
 
-    coco_converted = convert(root_obj, save_images_dir, index_objectron)
+    coco_converted = convert(root_obj, save_images_dir, index_objectron, mode='test')
 
     with open(save, 'w') as f:
         json.dump(coco_converted, f)

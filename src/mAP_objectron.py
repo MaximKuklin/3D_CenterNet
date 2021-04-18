@@ -20,7 +20,7 @@ from detectors.detector_factory import detector_factory
 from datasets.dataset_factory import dataset_factory
 from Objectron.objectron.dataset import iou
 from Objectron.objectron.dataset import box
-from mean_average_precision.detection_map import DetectionMAP
+# from mean_average_precision.detection_map import DetectionMAP
 
 
 image_ext = ['jpg', 'jpeg', 'png', 'webp']
@@ -28,58 +28,58 @@ video_ext = ['mp4', 'mov', 'avi', 'mkv']
 time_stats = ['tot', 'load', 'pre', 'net', 'dec', 'post', 'merge']
 
 
-class Detection3DMAP(DetectionMAP):
-    def __init__(self, n_class, pr_samples=11, overlap_threshold=0.5):
-        super().__init__(n_class, pr_samples=pr_samples, overlap_threshold=overlap_threshold)
-
-    def evaluate(self, pred_bb, pred_classes, pred_conf, gt_bb, gt_classes):
-        """
-        Update the accumulator for the running mAP evaluation.
-        For exemple, this can be called for each images
-        :param pred_bb: (np.array)      Predicted Bounding Boxes [x1, y1, x2, y2] :     Shape [n_pred, 4]
-        :param pred_classes: (np.array) Predicted Classes :                             Shape [n_pred]
-        :param pred_conf: (np.array)    Predicted Confidences [0.-1.] :                 Shape [n_pred]
-        :param gt_bb: (np.array)        Ground Truth Bounding Boxes [x1, y1, x2, y2] :  Shape [n_gt, 4]
-        :param gt_classes: (np.array)   Ground Truth Classes :                          Shape [n_gt]
-        :return:
-        """
-
-        IoUmask = None
-        if len(pred_bb) > 0:
-            IoUmask = self.compute_IoU_mask(pred_bb, gt_bb, self.overlap_threshold)
-        for accumulators, r in zip(self.total_accumulators, self.pr_scale):
-            self.evaluate_(IoUmask, accumulators, pred_classes, pred_conf, gt_classes, r)
-
-    def compute_IoU_mask(self, prediction, gt, overlap_threshold):
-        IoU = np.zeros((len(prediction), len(gt)))
-        for i in range(len(prediction)):
-            for j in range(len(gt)):
-                IoU[i, j] = iou.IoU(prediction[i], gt[j]).iou()
-
-        # for each prediction select gt with the largest IoU and ignore the others
-        for i in range(len(prediction)):
-            maxj = IoU[i, :].argmax()
-            IoU[i, :maxj] = 0
-            IoU[i, (maxj + 1):] = 0
-        # make a mask of all "matched" predictions vs gt
-        return IoU >= overlap_threshold
-
-    def get_map(self, interpolated=True, class_names=None):
-        """
-        Plot all pr-curves for each classes
-        :param interpolated: will compute the interpolated curve
-        :return:
-        """
-
-        mean_average_precision = []
-        # TODO: data structure not optimal for this operation...
-        for cls in range(self.n_class):
-            precisions, recalls = self.compute_precision_recall_(cls, interpolated)
-            average_precision = self.compute_ap(precisions, recalls)
-            mean_average_precision.append(average_precision)
-
-        mean_average_precision = sum(mean_average_precision) / len(mean_average_precision)
-        return mean_average_precision
+# class Detection3DMAP(DetectionMAP):
+#     def __init__(self, n_class, pr_samples=11, overlap_threshold=0.5):
+#         super().__init__(n_class, pr_samples=pr_samples, overlap_threshold=overlap_threshold)
+#
+#     def evaluate(self, pred_bb, pred_classes, pred_conf, gt_bb, gt_classes):
+#         """
+#         Update the accumulator for the running mAP evaluation.
+#         For exemple, this can be called for each images
+#         :param pred_bb: (np.array)      Predicted Bounding Boxes [x1, y1, x2, y2] :     Shape [n_pred, 4]
+#         :param pred_classes: (np.array) Predicted Classes :                             Shape [n_pred]
+#         :param pred_conf: (np.array)    Predicted Confidences [0.-1.] :                 Shape [n_pred]
+#         :param gt_bb: (np.array)        Ground Truth Bounding Boxes [x1, y1, x2, y2] :  Shape [n_gt, 4]
+#         :param gt_classes: (np.array)   Ground Truth Classes :                          Shape [n_gt]
+#         :return:
+#         """
+#
+#         IoUmask = None
+#         if len(pred_bb) > 0:
+#             IoUmask = self.compute_IoU_mask(pred_bb, gt_bb, self.overlap_threshold)
+#         for accumulators, r in zip(self.total_accumulators, self.pr_scale):
+#             self.evaluate_(IoUmask, accumulators, pred_classes, pred_conf, gt_classes, r)
+#
+#     def compute_IoU_mask(self, prediction, gt, overlap_threshold):
+#         IoU = np.zeros((len(prediction), len(gt)))
+#         for i in range(len(prediction)):
+#             for j in range(len(gt)):
+#                 IoU[i, j] = iou.IoU(prediction[i], gt[j]).iou()
+#
+#         # for each prediction select gt with the largest IoU and ignore the others
+#         for i in range(len(prediction)):
+#             maxj = IoU[i, :].argmax()
+#             IoU[i, :maxj] = 0
+#             IoU[i, (maxj + 1):] = 0
+#         # make a mask of all "matched" predictions vs gt
+#         return IoU >= overlap_threshold
+#
+#     def get_map(self, interpolated=True, class_names=None):
+#         """
+#         Plot all pr-curves for each classes
+#         :param interpolated: will compute the interpolated curve
+#         :return:
+#         """
+#
+#         mean_average_precision = []
+#         # TODO: data structure not optimal for this operation...
+#         for cls in range(self.n_class):
+#             precisions, recalls = self.compute_precision_recall_(cls, interpolated)
+#             average_precision = self.compute_ap(precisions, recalls)
+#             mean_average_precision.append(average_precision)
+#
+#         mean_average_precision = sum(mean_average_precision) / len(mean_average_precision)
+#         return mean_average_precision
 
 
 class PrefetchDataset(torch.utils.data.Dataset):
@@ -103,8 +103,8 @@ class PrefetchDataset(torch.utils.data.Dataset):
         img_id = self.images[index]
         video_info = self.load_image_func(ids=[img_id])[0]
         file_name = video_info['file_name']
-        frame = video_info['frame']
-        video_path = os.path.join(self.img_dir, file_name)
+
+        image_path = os.path.join(self.img_dir, file_name)
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         anns = self.coco.loadAnns(ids=ann_ids)
 
@@ -114,10 +114,10 @@ class PrefetchDataset(torch.utils.data.Dataset):
             gt_3d_box.append(bbox)
         gt_3d_box = np.stack(gt_3d_box)
 
-        img = self.grab_frame(video_path, frame)
+        img = cv2.imread(image_path)
         images, meta = {}, {}
 
-        for scale in opt.test_scales:
+        for scale in [1.0]:
            images[scale], meta[scale] = self.pre_process_func(img, scale)
         return img_id, {'images': images, 'image': img, 'meta': meta}, gt_3d_box
 

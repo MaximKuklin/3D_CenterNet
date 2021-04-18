@@ -18,12 +18,29 @@ from models.utils import flip_tensor
 from utils.image import get_affine_transform
 from utils.post_process import det3d_post_process
 from utils.debugger import Debugger
+from models.model import create_model
 
 from .base_detector import BaseDetector
 
 class Detector3D(BaseDetector):
   def __init__(self, opt):
-    super(Detector3D, self).__init__(opt)
+    if opt.gpus[0] >= 0:
+      opt.device = torch.device('cuda')
+    else:
+      opt.device = torch.device('cpu')
+
+    print('Creating model...')
+    self.model = create_model(opt.arch, opt.heads, opt.head_conv)
+    self.model = self.model.to(opt.device)
+    self.model.eval()
+
+    self.mean = np.array(opt.mean, dtype=np.float32).reshape(1, 1, 3)
+    self.std = np.array(opt.std, dtype=np.float32).reshape(1, 1, 3)
+    self.max_per_image = 100
+    self.num_classes = opt.num_classes
+    self.scales = opt.test_scales
+    self.opt = opt
+    self.pause = True
   
   def process(self, images, return_time=False):
     with torch.no_grad():

@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import torch
 import numpy as np
+import tqdm
 
 from models.losses import FocalLoss
 from models.losses import RegL1Loss, RegLoss, NormRegL1Loss, RegWeightedL1Loss
@@ -12,7 +13,14 @@ from models.utils import _sigmoid
 from utils.debugger import Debugger
 from utils.post_process import ctdet_post_process
 from utils.oracle_utils import gen_oracle_map
+import Objectron.objectron.dataset.box as box
+from src.tools.mean_average_precision_objectron import MetricBuilderObjectron
+from datasets.dataset_factory import get_dataset
+from src.mAP_objectron import PrefetchDataset
+
 from .base_trainer import BaseTrainer
+from detectors.detector_factory import detector_factory
+from datasets.dataset_factory import dataset_factory
 
 class Det3DLoss(torch.nn.Module):
   def __init__(self, opt):
@@ -72,7 +80,13 @@ class Det3DLoss(torch.nn.Module):
 class Det3DTrainer(BaseTrainer):
   def __init__(self, opt, model, optimizer=None):
     super(Det3DTrainer, self).__init__(opt, model, optimizer=optimizer)
-  
+    self.detector = detector_factory[opt.task](opt)
+    self.dataset = dataset_factory[opt.dataset](opt, 'test')
+    self.data_loader = torch.utils.data.DataLoader(
+        PrefetchDataset(opt, self.dataset, self.detector.pre_process),
+        batch_size=1, shuffle=True, num_workers=4, pin_memory=True
+    )
+
   def _get_losses(self, opt):
     loss_states = ['loss', 'hm_loss', 'dim_loss', 'rot_loss', 'loc_loss', 'off_loss']
     loss = Det3DLoss(opt)
@@ -126,3 +140,42 @@ class Det3DTrainer(BaseTrainer):
       batch['meta']['s'].cpu().numpy(),
       output['hm'].shape[2], output['hm'].shape[3], output['hm'].shape[1])
     results[batch['meta']['img_id'].cpu().numpy()[0]] = dets_out[0]
+
+  def val(self, epoch, _):
+    frames = []
+
+    for idx, (img_id, pre_processed_images, boxes_gt) in enumerate(tqdm.tqdm(self.data_loader)):
+        ret = self.detector.run(pre_processed_images)
+        boxes_3d = [ret['results'][i][:, 27:-2] for i in ret['results']][0]
+        probs = [ret['results'][i][:, -2] for i in ret['results']][0]
+        pred_classes = [ret['results'][i][:, -1] for i in ret['results']][0]
+        box_pred = [box.Box(vertices=box_pred.reshape(-1, 3)) for box_pred in boxes_3d]
+        boxes_gt = [box.Box(vertices=box_gt) for box_gt in boxes_gt[0].numpy()]
+        if len(boxes_gt) == 0 or len(box_pred) == 0:
+            print()
+        frames.append([box_pred, pred_classes, probs, boxes_gt, np.zeros((len(boxes_gt)))])
+
+    preds, gts = [], []
+
+    for frame in frames:
+      # [3d_box_gt, class_id, confidence]
+      preds.append(np.array((frame[0], frame[1], frame[2])))
+
+      # [3d_box_gt, class_id, difficult, crowd]
+      gts.append(np.array((frame[3], frame[4], frame[4], frame[4])))
+
+    metric_fn = MetricBuilderObjectron.build_evaluation_metric("map_3d", async_mode=False, num_classes=1)
+
+    for pred, gt in zip(preds, gts):
+        metric_fn.add(pred.T, gt.T)
+
+    mAP = metric_fn.value(
+      iou_thresholds=np.arange(0.5, 1.0, 0.05),
+      recall_thresholds=np.arange(0., 1.01, 0.01),
+      mpolicy='soft'
+    )
+
+    mAP_05 = mAP[0.5][0]['ap']
+    mAP_05_095 = mAP['mAP']
+
+    return mAP_05, mAP_05_095

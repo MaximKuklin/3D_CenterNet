@@ -20,13 +20,16 @@ class Objectron(data.Dataset):
                    dtype=np.float32).reshape(1, 1, 3)
 
     def __init__(self, opt, split):
-        super(Objectron, self).__init__(opt)
+        try:
+            super(Objectron, self).__init__(opt)
+        except:
+            super(Objectron, self).__init__()
         self.data_dir = os.path.join(opt.data_dir, 'Objectron')
         self.img_dir = os.path.join(self.data_dir, f"images_{split}")
         if split == 'test':
             self.annot_path = os.path.join(
                 self.data_dir, 'annotations',
-                'objectron_cleared_test.json').format(split)
+                'objectron_cleared_val.json').format(split)
         else:
             if opt.task == 'exdet':
                 self.annot_path = os.path.join(

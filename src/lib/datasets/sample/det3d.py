@@ -18,7 +18,7 @@ from scipy.spatial.transform import Rotation as R
 import albumentations as A
 
 
-DEBUG = True
+DEBUG = False
 
 if DEBUG:
     from src.lib.models.decode import project_points
