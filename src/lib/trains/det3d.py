@@ -178,4 +178,7 @@ class Det3DTrainer(BaseTrainer):
     mAP_05 = mAP[0.5][0]['ap']
     mAP_05_095 = mAP['mAP']
 
+    self.tb_logger.add_scalar(f"val/mAP 50", mAP_05, epoch)
+    self.tb_logger.add_scalar(f"val/mAP 50:95", mAP_05_095, epoch)
+
     return mAP_05, mAP_05_095
