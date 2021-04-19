@@ -88,6 +88,18 @@ class Dataset3D(data.Dataset):
         c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
         s = max(img.shape[0], img.shape[1]) * 1.0
 
+        aug = False
+
+        if self.split == 'train' and 1 > self.opt.aug_ddd: # np.random.random() < self.opt.aug_ddd:
+            aug = True
+            sf = self.opt.scale
+            # cf = self.opt.shift
+            scale_rand = np.random.randn()
+            # s = s * scale_rand * sf + 1
+            s = s * np.clip(scale_rand * sf + 1, 1 - sf, 1 + sf)
+            # c[0] += img.shape[1] * np.clip(np.random.randn() * cf, -2 * cf, 2 * cf)
+            # c[1] += img.shape[0] * np.clip(np.random.randn() * cf, -2 * cf, 2 * cf)
+
         trans_input = get_affine_transform(
             c, s, 0, [input_w, input_h])
         inp = cv2.warpAffine(img, trans_input,
@@ -129,6 +141,9 @@ class Dataset3D(data.Dataset):
             scale = np.array(ann['scale'])
             rot_angles = np.array(ann['rot'])
             translation = np.array(ann['translation'])
+
+            if aug:
+                translation[2] += translation[2] * scale_rand * sf
 
             ct = centers[k][:2]
             ct[0], ct[1] = ct[0] * output_h, ct[1] * output_w
