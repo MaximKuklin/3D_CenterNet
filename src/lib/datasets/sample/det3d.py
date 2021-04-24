@@ -30,14 +30,14 @@ class Dataset3D(data.Dataset):
         super(Dataset3D, self).__init__()
         self.opt = opt
         self.augs = A.Compose([
-            A.Blur(blur_limit=(4, 8), p=0.15),
-            A.ShiftScaleRotate(shift_limit=0.2, scale_limit=(-0.4, 0.2), rotate_limit=0,
-                               border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0), p=0.8),
+            A.Blur(blur_limit=(4, 8), p=0.1),
+            # A.ShiftScaleRotate(shift_limit=0.2, scale_limit=(-0.4, 0.2), rotate_limit=0,
+            #                    border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0), p=0.8),
             A.OneOf([
                 A.RandomBrightnessContrast(always_apply=True),
                 A.RandomGamma(gamma_limit=(60, 140), always_apply=True),
-                A.CLAHE(always_apply=True)
-            ], p=0.5),
+                # A.CLAHE(always_apply=True)
+            ], p=0.3),
             A.OneOf([
                 A.RGBShift(),
                 A.HueSaturationValue(),
@@ -88,6 +88,18 @@ class Dataset3D(data.Dataset):
         c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
         s = max(img.shape[0], img.shape[1]) * 1.0
 
+        aug = False
+
+        # if self.split == 'train' and 1 > self.opt.aug_ddd: # np.random.random() < self.opt.aug_ddd:
+        #     aug = True
+        #     sf = self.opt.scale
+        #     # cf = self.opt.shift
+        #     scale_rand = np.random.randn()
+        #     s = s * np.clip(scale_rand * sf + 1, 1 - sf, 1 + sf)
+        #     # x_shift, y_shift = 0.0, 0  # np.random.randn(), np.random.randn()
+        #     # c[0] += img.shape[1] * np.clip(x_shift * cf, -2 * cf, 2 * cf)
+        #     # c[1] += img.shape[0] * np.clip(y_shift * cf, -2 * cf, 2 * cf)
+
         trans_input = get_affine_transform(
             c, s, 0, [input_w, input_h])
         inp = cv2.warpAffine(img, trans_input,
@@ -96,6 +108,8 @@ class Dataset3D(data.Dataset):
 
         augmented = self.augs(image=inp, keypoints=centers)
         centers = np.array(augmented['keypoints']).reshape(num_objs, 2)
+        # centers = np.concatenate([centers, np.ones((centers.shape[0], 1))], axis=1)
+        # centers = np.matmul(scale_matrix, centers.T).T
         centers[:, 0], centers[:, 1] = centers[:, 0] / input_h, centers[:, 1] / input_w
         inp = augmented['image']
 
@@ -130,7 +144,13 @@ class Dataset3D(data.Dataset):
             rot_angles = np.array(ann['rot'])
             translation = np.array(ann['translation'])
 
+            # if aug:
+            #     translation[2] *= np.clip(scale_rand * sf + 1, 1 - sf, 1 + sf)
+                # translation[0] += translation[0] * y_shift * cf
+                # translation[1] -= (x_shift * cf) * 0.3
+
             ct = centers[k][:2]
+
             ct[0], ct[1] = ct[0] * output_h, ct[1] * output_w
             ct[0], ct[1] = np.clip(ct[0], 0, output_w - 1), np.clip(ct[1], 0, output_w - 1)
 
@@ -158,25 +178,34 @@ class Dataset3D(data.Dataset):
                 reg_mask[k] = 1
 
                 if DEBUG:
-                    # lines = (
-                    #     [1, 5], [2, 6], [3, 7], [4, 8],  # lines along x-axis
-                    #     [1, 3], [5, 7], [2, 4], [6, 8],  # lines along y-axis
-                    #     [1, 2], [3, 4], [5, 6], [7, 8]  # lines along z-axis
-                    # )
+                    lines = (
+                        [1, 5], [2, 6], [3, 7], [4, 8],  # lines along x-axis
+                        [1, 3], [5, 7], [2, 4], [6, 8],  # lines along y-axis
+                        [1, 2], [3, 4], [5, 6], [7, 8]  # lines along z-axis
+                    )
 
                     plt.scatter(ct_int[0], ct_int[1])
-                    # r = R.from_euler('zyx', rot_angles).as_matrix()
-                    #
-                    # box_3d = Box.from_transformation(r, translation, scale).vertices
-                    # points_2d = project_points(box_3d, np.array(video_info['projection_matrix']))
-                    # points_2d *= 128
-                    # points_2d = points_2d.astype(int)
-                    # for ids in lines:
-                    #     plt.plot(
-                    #         (points_2d[ids[0]][0], points_2d[ids[1]][0]),
-                    #         (points_2d[ids[0]][1], points_2d[ids[1]][1]),
-                    #         color='r',
-                    #     )
+                    r = R.from_euler('zyx', rot_angles).as_matrix()
+
+                    box_3d = Box.from_transformation(r, translation, scale).vertices
+                    points_2d = project_points(box_3d, np.array(video_info['projection_matrix']))
+                    points_2d *= 128
+                    points_2d = points_2d.astype(int)
+                    for ids in lines:
+                        plt.plot(
+                            (points_2d[ids[0]][0], points_2d[ids[1]][0]),
+                            (points_2d[ids[0]][1], points_2d[ids[1]][1]),
+                            color='r',
+                        )
+
+                    points_2d = np.array(ann['keypoints_2d']) * 128
+                    points_2d = points_2d.astype(int)
+                    for ids in lines:
+                        plt.plot(
+                            (points_2d[ids[0]][0], points_2d[ids[1]][0]),
+                            (points_2d[ids[0]][1], points_2d[ids[1]][1]),
+                            color='b',
+                        )
 
 
         ret = {

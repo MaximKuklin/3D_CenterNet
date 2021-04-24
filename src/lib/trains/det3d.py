@@ -88,7 +88,7 @@ class Det3DTrainer(BaseTrainer):
     )
 
   def _get_losses(self, opt):
-    loss_states = ['loss', 'hm_loss', 'dim_loss', 'rot_loss', 'loc_loss', 'off_loss']
+    loss_states = ['loss', 'hm_loss', 'dim_loss', 'rot_loss', 'loc_loss']
     loss = Det3DLoss(opt)
     return loss_states, loss
 

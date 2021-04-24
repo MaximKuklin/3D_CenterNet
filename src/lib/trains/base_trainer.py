@@ -85,13 +85,14 @@ class BaseTrainer(object):
         avg_loss_stats[l].update(
           loss_stats[l].mean().item(), batch['input'].size(0))
         Bar.suffix = Bar.suffix + '|{} {:.4f} '.format(l, avg_loss_stats[l].avg)
-        self.tb_logger.add_scalar(f"train/{l}", avg_loss_stats[l].avg, (epoch-1)*num_iters + iter_id)
       if not opt.hide_data_time:
         Bar.suffix = Bar.suffix + '|Data {dt.val:.3f}s({dt.avg:.3f}s) ' \
           '|Net {bt.avg:.3f}s'.format(dt=data_time, bt=batch_time)
       if opt.print_iter > 0:
-        if iter_id % opt.print_iter == 0:
-          print('{}/{}| {}'.format(opt.task, opt.exp_id, Bar.suffix)) 
+        if iter_id % opt.print_iter == 0 and iter_id > 0:
+          print('{}/{}| {}'.format(opt.task, opt.exp_id, Bar.suffix))
+          for l in avg_loss_stats:
+            self.tb_logger.add_scalar(f"train/{l}", avg_loss_stats[l].avg, (epoch - 1) * num_iters + iter_id)
       else:
         bar.next()
       
