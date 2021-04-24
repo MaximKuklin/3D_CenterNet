@@ -46,7 +46,7 @@ class Dataset3D(data.Dataset):
                 A.ToGray()
             ], p=0.1)
         ],
-            keypoint_params=A.KeypointParams(format='xy', remove_invisible=False)
+            keypoint_params=A.KeypointParams(format='xy', remove_invisible=True)
         )
 
     def _coco_box_to_bbox(self, box):
@@ -75,11 +75,14 @@ class Dataset3D(data.Dataset):
         image_path = os.path.join(self.img_dir, file_name)
         ann_ids = self.coco.getAnnIds(imgIds=[img_id])
         anns = self.coco.loadAnns(ids=ann_ids)
-        num_objs = min(len(anns), self.max_objs)
         input_h, input_w = self.opt.input_h, self.opt.input_w
 
         centers = np.array([ann['keypoints_2d'] for ann in anns])[:, 0::9, :2]
-        centers = centers.reshape(num_objs, 2)
+        centers = centers.reshape(-1, 2)
+        keep = np.where(np.all((0 < centers) & (1 > centers), axis=1) == True)
+        centers = centers[keep]
+        anns = [anns[i] for i in keep[0]]
+        num_objs = min(len(centers), self.max_objs)
 
         img = cv2.imread(image_path)
 
@@ -87,17 +90,29 @@ class Dataset3D(data.Dataset):
         centers[:, 0], centers[:, 1] = centers[:, 0]*img.shape[1], centers[:, 1]*img.shape[0]
         augmented = self.augs(image=img, keypoints=centers)
         inp, centers = augmented['image'], np.array(augmented['keypoints'])
-        centers[:, 0], centers[:, 1] = centers[:, 0] / inp.shape[1], centers[:, 1] / inp.shape[0]
+        wh_ratio = img.shape[1] / img.shape[0]
+        c = np.array([inp.shape[1] / 2., inp.shape[0] / 2.], dtype=np.float32)
+        s = max(inp.shape[0], inp.shape[1]) * 1.0
 
         aug = False
-        if self.split == 'train' and 0 > self.opt.aug_ddd: # np.random.random() < self.opt.aug_ddd:
+        if self.split == 'train' and np.random.random() < self.opt.aug_ddd and num_objs > 0:
             aug = True
             sf = self.opt.scale
-        #     # cf = self.opt.shift
-            scale_rand = 0.5  # np.random.randn()
+            # cf = self.opt.shift
+            scale_rand = np.random.random()
+            s = s * np.clip(scale_rand * sf + 1, 1 - sf, 1 + sf)
 
-            centers[:, 0] -= centers[:, 0] * scale_rand * sf
-            centers[:, 1] -= centers[:, 1] * scale_rand * sf
+            trans_input = get_affine_transform(
+                c, s, 0, [input_w, input_h])
+            inp = cv2.warpAffine(inp, trans_input,
+                                 (input_w, input_h),
+                                 flags=cv2.INTER_LINEAR)
+
+            centers = np.concatenate([centers, np.ones((centers.shape[0], 1))], axis=1)
+            centers = np.matmul(trans_input, centers.T).T
+
+        if num_objs > 0:
+            centers[:, 0], centers[:, 1] = centers[:, 0] / inp.shape[1], centers[:, 1] / inp.shape[0]
 
         inp = (inp.astype(np.float32) / 255.)
         inp = (inp - self.mean) / self.std
@@ -115,8 +130,6 @@ class Dataset3D(data.Dataset):
         ind = np.zeros((self.max_objs), dtype=np.int64)
         reg = np.zeros((self.max_objs, 2), dtype=np.float32)
 
-
-        gt_det = []
         for k in range(num_objs):
             ann = anns[k]
             bbox = np.array(ann['bbox'])
@@ -169,7 +182,7 @@ class Dataset3D(data.Dataset):
 
                     box_3d = Box.from_transformation(r, translation, scale).vertices
                     points_2d = project_points(box_3d, np.array(video_info['projection_matrix']))
-                    points_2d[:, 0] = points_2d[:, 0]*96 + (128-96)/2
+                    points_2d[:, 0] = points_2d[:, 0] * (128*wh_ratio) + 128*(1-wh_ratio)/2
                     points_2d[:, 1] *= 128
                     points_2d = points_2d.astype(int)
                     for ids in lines:
