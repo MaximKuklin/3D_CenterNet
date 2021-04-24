@@ -30,6 +30,8 @@ class Dataset3D(data.Dataset):
         super(Dataset3D, self).__init__()
         self.opt = opt
         self.augs = A.Compose([
+            A.LongestMaxSize(max(self.opt.input_h, self.opt.input_w), always_apply=True),
+            A.PadIfNeeded(self.opt.input_h, self.opt.input_w, border_mode=cv2.BORDER_CONSTANT, value=[0, 0, 0]),
             A.Blur(blur_limit=(4, 8), p=0.1),
             # A.ShiftScaleRotate(shift_limit=0.2, scale_limit=(-0.4, 0.2), rotate_limit=0,
             #                    border_mode=cv2.BORDER_CONSTANT, value=(0, 0, 0), p=0.8),
@@ -79,39 +81,23 @@ class Dataset3D(data.Dataset):
         centers = np.array([ann['keypoints_2d'] for ann in anns])[:, 0::9, :2]
         centers = centers.reshape(num_objs, 2)
 
-        centers[:, 0], centers[:, 1] = centers[:, 0] * input_h, centers[:, 1] * input_w
-        centers[:, 0] = np.clip(centers[:, 0], 0, input_h - 1)
-        centers[:, 1] = np.clip(centers[:, 1], 0, input_w - 1)
-
         img = cv2.imread(image_path)
-        # get image shape and center
-        c = np.array([img.shape[1] / 2., img.shape[0] / 2.], dtype=np.float32)
-        s = max(img.shape[0], img.shape[1]) * 1.0
+
+        # resize, pad, and color augs
+        centers[:, 0], centers[:, 1] = centers[:, 0]*img.shape[1], centers[:, 1]*img.shape[0]
+        augmented = self.augs(image=img, keypoints=centers)
+        inp, centers = augmented['image'], np.array(augmented['keypoints'])
+        centers[:, 0], centers[:, 1] = centers[:, 0] / inp.shape[1], centers[:, 1] / inp.shape[0]
 
         aug = False
-
-        # if self.split == 'train' and 1 > self.opt.aug_ddd: # np.random.random() < self.opt.aug_ddd:
-        #     aug = True
-        #     sf = self.opt.scale
+        if self.split == 'train' and 0 > self.opt.aug_ddd: # np.random.random() < self.opt.aug_ddd:
+            aug = True
+            sf = self.opt.scale
         #     # cf = self.opt.shift
-        #     scale_rand = np.random.randn()
-        #     s = s * np.clip(scale_rand * sf + 1, 1 - sf, 1 + sf)
-        #     # x_shift, y_shift = 0.0, 0  # np.random.randn(), np.random.randn()
-        #     # c[0] += img.shape[1] * np.clip(x_shift * cf, -2 * cf, 2 * cf)
-        #     # c[1] += img.shape[0] * np.clip(y_shift * cf, -2 * cf, 2 * cf)
+            scale_rand = 0.5  # np.random.randn()
 
-        trans_input = get_affine_transform(
-            c, s, 0, [input_w, input_h])
-        inp = cv2.warpAffine(img, trans_input,
-                             (input_w, input_h),
-                             flags=cv2.INTER_LINEAR)
-
-        augmented = self.augs(image=inp, keypoints=centers)
-        centers = np.array(augmented['keypoints']).reshape(num_objs, 2)
-        # centers = np.concatenate([centers, np.ones((centers.shape[0], 1))], axis=1)
-        # centers = np.matmul(scale_matrix, centers.T).T
-        centers[:, 0], centers[:, 1] = centers[:, 0] / input_h, centers[:, 1] / input_w
-        inp = augmented['image']
+            centers[:, 0] -= centers[:, 0] * scale_rand * sf
+            centers[:, 1] -= centers[:, 1] * scale_rand * sf
 
         inp = (inp.astype(np.float32) / 255.)
         inp = (inp - self.mean) / self.std
@@ -120,14 +106,8 @@ class Dataset3D(data.Dataset):
         output_h = input_h // self.opt.down_ratio
         output_w = input_w // self.opt.down_ratio
 
-
-        # trans_output = get_affine_transform(c, s, 0, [output_w, output_h])
-
         # empty input
         heat_map = np.zeros([self.num_classes, output_h, output_w], dtype=np.float32)
-        # regression = np.zeros([self.max_objs, 3, 8], dtype=np.float32)
-        # cls_ids = np.zeros([self.max_objs], dtype=np.int32)
-        # proj_points = np.zeros([self.max_objs, 2], dtype=np.int32)
         scales = np.zeros([self.max_objs, 3], dtype=np.float32)
         translations = np.zeros([self.max_objs, 3], dtype=np.float32)
         rotvecs = np.zeros([self.max_objs, 3], dtype=np.float32)
@@ -144,8 +124,8 @@ class Dataset3D(data.Dataset):
             rot_angles = np.array(ann['rot'])
             translation = np.array(ann['translation'])
 
-            # if aug:
-            #     translation[2] *= np.clip(scale_rand * sf + 1, 1 - sf, 1 + sf)
+            if aug:
+                translation[2] *= np.clip(scale_rand * sf + 1, 1 - sf, 1 + sf)
                 # translation[0] += translation[0] * y_shift * cf
                 # translation[1] -= (x_shift * cf) * 0.3
 
@@ -189,7 +169,8 @@ class Dataset3D(data.Dataset):
 
                     box_3d = Box.from_transformation(r, translation, scale).vertices
                     points_2d = project_points(box_3d, np.array(video_info['projection_matrix']))
-                    points_2d *= 128
+                    points_2d[:, 0] = points_2d[:, 0]*96 + (128-96)/2
+                    points_2d[:, 1] *= 128
                     points_2d = points_2d.astype(int)
                     for ids in lines:
                         plt.plot(
@@ -198,14 +179,17 @@ class Dataset3D(data.Dataset):
                             color='r',
                         )
 
-                    points_2d = np.array(ann['keypoints_2d']) * 128
-                    points_2d = points_2d.astype(int)
-                    for ids in lines:
-                        plt.plot(
-                            (points_2d[ids[0]][0], points_2d[ids[1]][0]),
-                            (points_2d[ids[0]][1], points_2d[ids[1]][1]),
-                            color='b',
-                        )
+                    # points_2d = np.array(ann['keypoints_2d'])
+                    # points_2d[:, 0] *= 128
+                    # points_2d[:, 1] *= 128
+                    #
+                    # points_2d = points_2d.astype(int)
+                    # for ids in lines:
+                    #     plt.plot(
+                    #         (points_2d[ids[0]][0], points_2d[ids[1]][0]),
+                    #         (points_2d[ids[0]][1], points_2d[ids[1]][1]),
+                    #         color='b',
+                    #     )
 
 
         ret = {
@@ -234,7 +218,6 @@ class Dataset3D(data.Dataset):
             plt.show()
             plt.imshow(heat_map[0])
             plt.show()
-
 
         return ret
 
