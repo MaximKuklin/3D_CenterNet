@@ -39,14 +39,14 @@ class Dataset3D(data.Dataset):
                 A.RandomBrightnessContrast(always_apply=True),
                 A.RandomGamma(gamma_limit=(60, 140), always_apply=True),
                 # A.CLAHE(always_apply=True)
-            ], p=0.3),
+            ], p=0.5),
             A.OneOf([
                 A.RGBShift(),
                 A.HueSaturationValue(),
                 A.ToGray()
             ], p=0.1)
         ],
-            keypoint_params=A.KeypointParams(format='xy', remove_invisible=True)
+            keypoint_params=A.KeypointParams(format='xy', remove_invisible=False)
         )
 
     def _coco_box_to_bbox(self, box):
@@ -82,7 +82,6 @@ class Dataset3D(data.Dataset):
         keep = np.where(np.all((0 < centers) & (1 > centers), axis=1) == True)
         centers = centers[keep]
         anns = [anns[i] for i in keep[0]]
-        num_objs = min(len(centers), self.max_objs)
 
         img = cv2.imread(image_path)
 
@@ -90,6 +89,7 @@ class Dataset3D(data.Dataset):
         centers[:, 0], centers[:, 1] = centers[:, 0]*img.shape[1], centers[:, 1]*img.shape[0]
         augmented = self.augs(image=img, keypoints=centers)
         inp, centers = augmented['image'], np.array(augmented['keypoints'])
+        num_objs = min(len(centers), self.max_objs)
         wh_ratio = img.shape[1] / img.shape[0]
         c = np.array([inp.shape[1] / 2., inp.shape[0] / 2.], dtype=np.float32)
         s = max(inp.shape[0], inp.shape[1]) * 1.0
