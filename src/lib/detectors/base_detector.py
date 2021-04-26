@@ -11,7 +11,7 @@ import torch
 from models.model import create_model, load_model
 from utils.image import get_affine_transform
 from utils.debugger import Debugger
-
+import albumentations as A
 
 class BaseDetector(object):
   def __init__(self, opt):
@@ -112,7 +112,7 @@ class BaseDetector(object):
       torch.cuda.synchronize()
       pre_process_time = time.time()
       pre_time += pre_process_time - scale_start_time
-      
+
       output, dets, forward_time = self.process(images, return_time=True)
 
       torch.cuda.synchronize()
@@ -137,6 +137,8 @@ class BaseDetector(object):
     tot_time += end_time - start_time
 
     if self.opt.debug >= 1:
+      max_size = max(image.shape[0], image.shape[1])
+      image = A.pad(image, max_size, max_size, cv2.BORDER_CONSTANT, value=[255, 255, 255])
       self.show_results(debugger, image, results)
     
     return {'results': results, 'tot': tot_time, 'load': load_time,

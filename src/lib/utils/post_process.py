@@ -121,7 +121,8 @@ def det3d_post_process(dets, c, s, h, w, num_classes):
   h = c[0][1]*2
   for i in range(dets.shape[0]):
     top_preds = {}
-    dets[i, :, :27][:, 0::3] *= w
+    # dets[i, :, :27][:, 0::3] = dets[i, :, :27][:, 0::3] * (w/h) + (w/h)/2
+    dets[i, :, :27][:, 0::3] = dets[i, :, :27][:, 0::3] * w + (h-w)/2
     dets[i, :, :27][:, 1::3] *= h
     classes = dets[i, :, -1]
     for j in range(num_classes):
